@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Break-Even & FCF Analyzer</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Bebas+Neue&family=Barlow:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f5f2ec;
+  --bg2: #ede9e1;
+  --surface: #ffffff;
+  --surface2: #f0ece4;
+  --border: #d4cfc5;
+  --border2: #c4bfb5;
+  --text: #1a1714;
+  --muted: #7a756c;
+  --accent: #c8401a;
+  --accent2: #1a6ec8;
+  --green: #1a7a3a;
+  --greenb: #e8f5ed;
+  --redb: #fdf0ed;
+  --yellowb: #fdf8e8;
+  --yellow: #9a7a1a;
+  --mono: 'IBM Plex Mono', monospace;
+  --display: 'Bebas Neue', sans-serif;
+  --body: 'Barlow', sans-serif;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--text); font-family: var(--body); font-size: 14px; line-height: 1.5; min-height: 100vh; }
+
+/* ── HEADER ── */
+header {
+  background: var(--text);
+  color: var(--bg);
+  padding: 28px 40px 22px;
+  display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; gap: 16px;
+}
+header h1 { font-family: var(--display); font-size: 3rem; letter-spacing: 2px; line-height: 1; color: #fff; }
+header p { font-family: var(--mono); font-size: 0.68rem; color: #aaa; margin-top: 4px; letter-spacing: 0.5px; }
+.hbadges { display: flex; gap: 10px; flex-wrap: wrap; }
+.hbadge { font-family: var(--mono); font-size: 0.65rem; border: 1px solid #555; border-radius: 2px; padding: 4px 10px; color: #bbb; }
+.hbadge span { color: #f0c040; }
+
+/* ── KPI ROW ── */
+.kpi-row { display: grid; grid-template-columns: repeat(5,1fr); border-bottom: 2px solid var(--text); }
+@media(max-width:900px){ .kpi-row { grid-template-columns: repeat(3,1fr); } }
+@media(max-width:560px){ .kpi-row { grid-template-columns: repeat(2,1fr); } }
+.kpi { background: var(--surface); padding: 18px 22px; border-right: 1px solid var(--border); }
+.kpi:last-child { border-right: none; }
+.kpi-lbl { font-family: var(--mono); font-size: 0.6rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
+.kpi-val { font-family: var(--display); font-size: 2rem; letter-spacing: 1px; }
+.kpi-val.red { color: var(--accent); }
+.kpi-val.green { color: var(--green); }
+.kpi-val.blue { color: var(--accent2); }
+.kpi-val.yellow { color: var(--yellow); }
+.kpi-sub { font-family: var(--mono); font-size: 0.62rem; color: var(--muted); margin-top: 3px; }
+.kpi.live { background: var(--text); }
+.kpi.live .kpi-lbl { color: #888; }
+.kpi.live .kpi-val { color: #fff; }
+.kpi.live .kpi-sub { color: #666; }
+.kpi.live .kpi-val.red { color: #ff8070; }
+.kpi.live .kpi-val.green { color: #70e090; }
+
+/* ── LAYOUT ── */
+.main { display: grid; grid-template-columns: 380px 1fr; min-height: calc(100vh - 200px); }
+@media(max-width:900px){ .main { grid-template-columns: 1fr; } }
+.left-panel { border-right: 2px solid var(--text); background: var(--surface); overflow-y: auto; }
+.right-panel { background: var(--bg); overflow-y: auto; }
+
+/* ── TABS ── */
+.tabs { display: flex; border-bottom: 2px solid var(--text); background: var(--text); }
+.tab { font-family: var(--mono); font-size: 0.68rem; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; padding: 10px 18px; cursor: pointer; color: #888; border-right: 1px solid #333; transition: all 0.15s; }
+.tab.active { background: var(--accent); color: #fff; }
+.tab:hover:not(.active) { color: #ccc; }
+
+/* ── PANELS ── */
+.panel { display: none; }
+.panel.active { display: block; }
+
+/* ── EXPENSE SLIDERS ── */
+.exp-section { border-bottom: 1px solid var(--border); }
+.exp-section-header {
+  font-family: var(--mono); font-size: 0.65rem; font-weight: 600; text-transform: uppercase; letter-spacing: 1.5px;
+  padding: 12px 20px 8px; color: var(--muted); background: var(--bg2);
+  display: flex; justify-content: space-between; align-items: center;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer; user-select: none;
+}
+.exp-section-header .sect-total { font-family: var(--display); font-size: 1.1rem; color: var(--text); letter-spacing: 1px; }
+.exp-section-header .sect-saving { font-size: 0.7rem; color: var(--accent); font-family: var(--mono); }
+.exp-items { padding: 0; }
+.exp-item { padding: 12px 20px; border-bottom: 1px solid var(--border2); }
+.exp-item:last-child { border-bottom: none; }
+.exp-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+.exp-name { font-size: 0.78rem; font-weight: 500; color: var(--text); line-height: 1.2; }
+.exp-acct { font-family: var(--mono); font-size: 0.6rem; color: var(--muted); }
+.exp-amounts { text-align: right; }
+.exp-orig { font-family: var(--mono); font-size: 0.7rem; color: var(--muted); text-decoration: line-through; }
+.exp-new { font-family: var(--display); font-size: 1.1rem; letter-spacing: 0.5px; }
+.exp-new.changed { color: var(--accent); }
+.slider-wrap { display: flex; align-items: center; gap: 10px; }
+.slider-wrap input[type=range] {
+  flex: 1; height: 4px; cursor: pointer; accent-color: var(--accent);
+  -webkit-appearance: none; appearance: none;
+  background: linear-gradient(to right, var(--accent) 0%, var(--accent) var(--pct, 0%), var(--border) var(--pct, 0%), var(--border) 100%);
+  border-radius: 2px;
+}
+.slider-wrap input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%; background: var(--accent); cursor: pointer; border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
+.slider-pct { font-family: var(--mono); font-size: 0.72rem; font-weight: 600; width: 36px; text-align: right; color: var(--accent); }
+.slider-saving { font-family: var(--mono); font-size: 0.65rem; color: var(--green); margin-top: 3px; }
+
+.reset-btn {
+  margin: 16px 20px; padding: 8px 16px; background: var(--text); color: #fff;
+  border: none; font-family: var(--mono); font-size: 0.68rem; font-weight: 600;
+  letter-spacing: 1px; text-transform: uppercase; cursor: pointer; border-radius: 2px;
+  transition: background 0.15s;
+}
+.reset-btn:hover { background: var(--accent); }
+
+/* ── RIGHT PANEL ── */
+.r-section { padding: 24px 28px; border-bottom: 1px solid var(--border); }
+.r-title { font-family: var(--display); font-size: 1.4rem; letter-spacing: 2px; color: var(--text); margin-bottom: 16px; }
+
+/* FCF Bridge */
+.bridge { display: flex; flex-direction: column; gap: 6px; }
+.brow { display: grid; grid-template-columns: 200px 1fr 120px; gap: 8px; align-items: center; min-height: 26px; }
+.brow-lbl { font-size: 0.75rem; color: var(--muted); }
+.brow-lbl.bold { color: var(--text); font-weight: 600; }
+.brow-bar-wrap { position: relative; height: 20px; background: var(--bg2); border-radius: 2px; overflow: hidden; }
+.brow-bar { height: 20px; border-radius: 2px; transition: width 0.3s ease; display: flex; align-items: center; padding: 0 6px; font-family: var(--mono); font-size: 0.6rem; }
+.brow-bar.pos { background: #d4f0dc; color: var(--green); }
+.brow-bar.neg { background: #f5ddd9; color: var(--accent); }
+.brow-bar.neu { background: #dde8f5; color: var(--accent2); }
+.brow-bar.fcf { background: var(--text); color: #fff; }
+.brow-amt { font-family: var(--display); font-size: 1.2rem; letter-spacing: 0.5px; text-align: right; }
+.brow-amt.pos { color: var(--green); }
+.brow-amt.neg { color: var(--accent); }
+.brow-amt.neu { color: var(--accent2); }
+.brow-divider { border-top: 1px solid var(--border2); margin: 4px 0; }
+
+/* Progress meters */
+.meters { display: flex; flex-direction: column; gap: 14px; }
+.meter { }
+.meter-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 5px; }
+.meter-label { font-size: 0.78rem; font-weight: 600; }
+.meter-val { font-family: var(--mono); font-size: 0.72rem; }
+.meter-track { height: 12px; background: var(--bg2); border-radius: 2px; overflow: hidden; border: 1px solid var(--border); }
+.meter-fill { height: 12px; border-radius: 2px; transition: width 0.4s ease; }
+.meter-fill.red { background: var(--accent); }
+.meter-fill.yellow { background: #d4a020; }
+.meter-fill.green { background: var(--green); }
+.meter-sub { font-family: var(--mono); font-size: 0.62rem; color: var(--muted); margin-top: 4px; }
+
+/* Price / Margin panel */
+.pm-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 18px; }
+@media(max-width:600px){ .pm-grid { grid-template-columns: 1fr; } }
+.inp-grp { display: flex; flex-direction: column; gap: 5px; }
+.inp-grp label { font-family: var(--mono); font-size: 0.62rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+.inp-grp input {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 2px;
+  color: var(--text); font-family: var(--mono); font-size: 0.85rem;
+  padding: 9px 13px; outline: none; transition: border-color 0.2s; width: 100%;
+}
+.inp-grp input:focus { border-color: var(--accent); }
+.inp-grp .hint { font-family: var(--mono); font-size: 0.6rem; color: var(--muted); }
+
+.scenario-table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+.scenario-table th { font-family: var(--mono); font-size: 0.6rem; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); padding: 7px 12px; border-bottom: 2px solid var(--text); text-align: right; }
+.scenario-table th:first-child { text-align: left; }
+.scenario-table td { padding: 8px 12px; border-bottom: 1px solid var(--border); text-align: right; font-family: var(--mono); font-size: 0.75rem; }
+.scenario-table td:first-child { text-align: left; font-family: var(--body); }
+.scenario-table tr.highlight td { background: var(--text); color: #fff; font-weight: 600; }
+.scenario-table tr.highlight td.green { color: #70e090; }
+.scenario-table tr.highlight td.red { color: #ff8070; }
+.pos { color: var(--green); }
+.neg { color: var(--accent); }
+.neu { color: var(--yellow); }
+
+/* Summary box */
+.summary-box {
+  background: var(--text); color: #fff; border-radius: 3px;
+  padding: 20px 24px; margin-top: 0;
+}
+.summary-box .sb-title { font-family: var(--display); font-size: 1.1rem; letter-spacing: 2px; color: #aaa; margin-bottom: 12px; }
+.sb-row { display: flex; justify-content: space-between; align-items: baseline; padding: 6px 0; border-bottom: 1px solid #333; font-size: 0.78rem; }
+.sb-row:last-child { border-bottom: none; }
+.sb-row .sl { color: #888; }
+.sb-row .sv { font-family: var(--display); font-size: 1.2rem; letter-spacing: 0.5px; }
+.sb-row .sv.green { color: #70e090; }
+.sb-row .sv.red { color: #ff8070; }
+.sb-row .sv.yellow { color: #f0c040; }
+.sb-row .sv.white { color: #fff; }
+
+.note-box { background: var(--yellowb); border-left: 3px solid var(--yellow); padding: 12px 16px; font-size: 0.73rem; color: #5a4a10; line-height: 1.6; border-radius: 0 2px 2px 0; margin-top: 12px; }
+.note-box strong { color: var(--yellow); }
+
+@media(max-width:500px){
+  header { padding: 18px; }
+  header h1 { font-size: 2rem; }
+  .r-section { padding: 16px 16px; }
+  .brow { grid-template-columns: 140px 1fr 90px; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>Break-Even & FCF Analyzer</h1>
+    <p>Drag sliders to model expense reductions · Analyze price / margin paths to profitability</p>
+  </div>
+  <div class="hbadges">
+    <div class="hbadge">Trial Balance: <span>Dec 31, 2025</span></div>
+    <div class="hbadge">Entity: <span>Elk River (ER)</span></div>
+  </div>
+</header>
+
+<!-- Live KPI Strip -->
+<div class="kpi-row">
+  <div class="kpi">
+    <div class="kpi-lbl">Revenue</div>
+    <div class="kpi-val green">$2,410,023</div>
+    <div class="kpi-sub">Actual YTD</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-lbl">Gross Profit</div>
+    <div class="kpi-val yellow">$1,172,740</div>
+    <div class="kpi-sub">48.7% margin</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-lbl">OpEx (Original)</div>
+    <div class="kpi-val red">$1,353,888</div>
+    <div class="kpi-sub">Before any cuts</div>
+  </div>
+  <div class="kpi live">
+    <div class="kpi-lbl">OpEx After Cuts</div>
+    <div class="kpi-val" id="kpi-opex">$1,353,888</div>
+    <div class="kpi-sub" id="kpi-saving">$0 saved so far</div>
+  </div>
+  <div class="kpi live">
+    <div class="kpi-lbl">Net Income / FCF</div>
+    <div class="kpi-val red" id="kpi-net">–$181,148</div>
+    <div class="kpi-sub" id="kpi-fcf">FCF: –$119,417 est.</div>
+  </div>
+</div>
+
+<!-- Main Layout -->
+<div class="main">
+
+  <!-- LEFT: Expense Sliders -->
+  <div class="left-panel">
+    <div class="tabs">
+      <div class="tab active" onclick="switchTab('expenses')">Expense Sliders</div>
+      <div class="tab" onclick="switchTab('price')">Price / Margin</div>
+    </div>
+
+    <!-- EXPENSES TAB -->
+    <div class="panel active" id="tab-expenses">
+      <div id="sliderSections"></div>
+      <button class="reset-btn" onclick="resetAll()">↺ Reset All to 0%</button>
+    </div>
+
+    <!-- PRICE/MARGIN TAB -->
+    <div class="panel" id="tab-price">
+      <div style="padding:20px;">
+        <div style="font-family:var(--mono);font-size:0.62rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:14px;">
+          Adjust revenue assumptions to find price/margin paths to break-even and FCF
+        </div>
+
+        <div class="pm-grid">
+          <div class="inp-grp">
+            <label>Current Revenue ($)</label>
+            <input type="number" id="pm-rev" value="2410023" step="10000" oninput="updatePrice()">
+          </div>
+          <div class="inp-grp">
+            <label>Current COGS ($)</label>
+            <input type="number" id="pm-cogs" value="1237283" step="10000" oninput="updatePrice()">
+            <div class="hint">Total direct costs (COGS + mfg overhead)</div>
+          </div>
+          <div class="inp-grp">
+            <label>Price Increase (%)</label>
+            <input type="number" id="pm-price-pct" value="0" step="0.5" min="-20" max="50" oninput="updatePrice()">
+            <div class="hint">% increase on selling price</div>
+          </div>
+          <div class="inp-grp">
+            <label>Volume Change (%)</label>
+            <input type="number" id="pm-vol" value="0" step="1" min="-50" max="100" oninput="updatePrice()">
+            <div class="hint">% change in units sold</div>
+          </div>
+          <div class="inp-grp">
+            <label>COGS Reduction (%)</label>
+            <input type="number" id="pm-cogs-cut" value="0" step="0.5" min="0" max="30" oninput="updatePrice()">
+            <div class="hint">e.g. better supplier pricing</div>
+          </div>
+          <div class="inp-grp">
+            <label>Est. Debt Service ($/yr)</label>
+            <input type="number" id="pm-debt" value="85000" step="5000" oninput="updatePrice()">
+            <div class="hint">Annual principal payments</div>
+          </div>
+        </div>
+
+        <div id="price-result"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT: Analysis -->
+  <div class="right-panel">
+
+    <!-- FCF Bridge -->
+    <div class="r-section">
+      <div class="r-title">Free Cash Flow Bridge</div>
+      <div class="bridge" id="bridge"></div>
+      <div class="note-box" style="margin-top:14px">
+        <strong>Key:</strong> Amortization of $106,600 (goodwill) is non-cash — your EBITDA is only –$34,417, much better than the –$181,148 net loss suggests.
+        Cutting ~$35K cash expenses reaches EBITDA break-even. ~$120K reaches positive FCF.
+      </div>
+    </div>
+
+    <!-- Progress Meters -->
+    <div class="r-section">
+      <div class="r-title">Progress to Targets</div>
+      <div class="meters" id="meters"></div>
+    </div>
+
+    <!-- Summary -->
+    <div class="r-section">
+      <div class="r-title">Live Summary</div>
+      <div class="summary-box" id="summary"></div>
+    </div>
+
+    <!-- Scenario Table -->
+    <div class="r-section">
+      <div class="r-title">Scenario Comparison</div>
+      <table class="scenario-table" id="scenarioTable"></table>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ── BASE DATA ───────────────────────────────────────────────────────────────
+const BASE = {
+  revenue:    2410023,
+  grossProfit: 1172740,
+  cogs:       1237283,
+  opex:       1353888,
+  netIncome:  -181148,
+  deprAmort:  146731,   // 24374+8310+7447+106600
+  ebitda:     -34417,
+  debtService: 85000,
+};
+
+// ── EXPENSE CATEGORIES ──────────────────────────────────────────────────────
+const categories = [
+  {
+    name: "Manufacturing & Production",
+    items: [
+      { name: "Mfg Supplies", acct: "6100", amt: 100612 },
+      { name: "Utilities – Manufacturing", acct: "6050", amt: 55543 },
+      { name: "Product Liability Insurance", acct: "6200", amt: 131292 },
+      { name: "Workers Comp", acct: "6230", amt: 10153 },
+      { name: "Freight – Inbound", acct: "6070", amt: 16114 },
+      { name: "Maint & Repair – Equipment", acct: "6010", amt: 3462 },
+      { name: "Maint & Repair – Building", acct: "6020", amt: 1204 },
+      { name: "Machine Lease", acct: "6450", amt: 6670 },
+      { name: "Travel – Manufacturing", acct: "6120", amt: 2049 },
+      { name: "Misc Factory Expenses", acct: "6130", amt: 4122 },
+    ]
+  },
+  {
+    name: "Sales & Distribution",
+    items: [
+      { name: "Delivery / Shipping", acct: "7300", amt: 97917 },
+      { name: "Commissions", acct: "7020", amt: 51186 },
+      { name: "Sales Wages", acct: "7010", amt: 50003 },
+      { name: "Sales Payroll Taxes", acct: "7050", amt: 4309 },
+      { name: "Sales Cell Phones", acct: "7250-7", amt: 5100 },
+      { name: "Trade Shows", acct: "7600", amt: 5925 },
+      { name: "Credit Card Processing", acct: "7700", amt: 10015 },
+      { name: "Travel – Sales", acct: "7410+7421", amt: 7496 },
+      { name: "Bank Charges – Distribution", acct: "8900-1", amt: 3574 },
+    ]
+  },
+  {
+    name: "Administrative",
+    items: [
+      { name: "Admin Wages", acct: "8010-1", amt: 286777 },
+      { name: "Health Insurance", acct: "8008-0008", amt: 153296 },
+      { name: "Management Fees", acct: "8011-0005", amt: 59000 },
+      { name: "Rent – Terry & Judy", acct: "8014-2", amt: 108000 },
+      { name: "Housing Rent", acct: "8014-4", amt: 19200 },
+      { name: "Software", acct: "8003-0003", amt: 48253 },
+      { name: "Dues & Subscriptions", acct: "8001-0005", amt: 14157 },
+      { name: "Professional Fees", acct: "8011", amt: 29845 },
+      { name: "Payroll Processing", acct: "8005", amt: 7693 },
+      { name: "Retirement Plan Admin", acct: "8005-1", amt: 4255 },
+      { name: "IT Support", acct: "8003-0002", amt: 7396 },
+      { name: "Office Supplies", acct: "8001-0007", amt: 4687 },
+      { name: "Property / General Insurance", acct: "8008-multi", amt: 56163 },
+      { name: "Property Tax & Licenses", acct: "8017+8014-3", amt: 7489 },
+      { name: "Utilities – Admin", acct: "8019", amt: 25507 },
+      { name: "Vehicle Leases", acct: "8004-0003", amt: 4443 },
+      { name: "Copier Leases", acct: "8004-0001", amt: 7361 },
+    ]
+  },
+  {
+    name: "Finance & Non-Cash",
+    items: [
+      { name: "LOC Interest", acct: "8900-0", amt: 50995 },
+      { name: "Interest & Penalties", acct: "8900-2", amt: 15697 },
+      { name: "Amortization – Goodwill", acct: "8800-2", amt: 106600, nonCash: true },
+      { name: "Depreciation – Equipment", acct: "6510", amt: 24374, nonCash: true },
+      { name: "Depreciation – Computer", acct: "7900-1", amt: 8310, nonCash: true },
+      { name: "Depreciation – Leasehold", acct: "8500-4", amt: 7447, nonCash: true },
+    ]
+  },
+];
+
+// ── STATE ───────────────────────────────────────────────────────────────────
+let cuts = {}; // key: "cat-item" => pct 0-100
+
+categories.forEach((cat, ci) => {
+  cat.items.forEach((item, ii) => {
+    cuts[`${ci}-${ii}`] = 0;
+  });
+});
+
+// ── BUILD SLIDERS ───────────────────────────────────────────────────────────
+function buildSliders() {
+  const wrap = document.getElementById('sliderSections');
+  wrap.innerHTML = '';
+  categories.forEach((cat, ci) => {
+    const sec = document.createElement('div');
+    sec.className = 'exp-section';
+    sec.innerHTML = `
+      <div class="exp-section-header" onclick="toggleSection(${ci})">
+        <div>
+          <div>${cat.name}</div>
+          <div class="sect-saving" id="sect-saving-${ci}"></div>
+        </div>
+        <div class="sect-total" id="sect-total-${ci}">$${cat.items.reduce((s,i)=>s+i.amt,0).toLocaleString()}</div>
+      </div>
+      <div class="exp-items" id="sect-items-${ci}">
+        ${cat.items.map((item, ii) => `
+          <div class="exp-item">
+            <div class="exp-top">
+              <div>
+                <div class="exp-name">${item.name}${item.nonCash ? ' <span style="font-size:0.6rem;color:var(--accent2);font-family:var(--mono)">[non-cash]</span>' : ''}</div>
+                <div class="exp-acct">${item.acct}</div>
+              </div>
+              <div class="exp-amounts">
+                <div class="exp-orig">$${item.amt.toLocaleString()}</div>
+                <div class="exp-new" id="amt-${ci}-${ii}">$${item.amt.toLocaleString()}</div>
+              </div>
+            </div>
+            <div class="slider-wrap">
+              <input type="range" min="0" max="100" value="0" id="slider-${ci}-${ii}"
+                oninput="onSlider(${ci},${ii},this.value)"
+                style="--pct:0%">
+              <div class="slider-pct" id="pct-${ci}-${ii}">0%</div>
+            </div>
+            <div class="slider-saving" id="saving-${ci}-${ii}"></div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+    wrap.appendChild(sec);
+  });
+}
+
+function toggleSection(ci) {
+  const items = document.getElementById(`sect-items-${ci}`);
+  items.style.display = items.style.display === 'none' ? '' : 'none';
+}
+
+function onSlider(ci, ii, val) {
+  const key = `${ci}-${ii}`;
+  cuts[key] = parseInt(val);
+  const item = categories[ci].items[ii];
+  const saving = Math.round(item.amt * val / 100);
+  const newAmt = item.amt - saving;
+
+  const slider = document.getElementById(`slider-${ci}-${ii}`);
+  slider.style.setProperty('--pct', val + '%');
+
+  const amtEl = document.getElementById(`amt-${ci}-${ii}`);
+  amtEl.textContent = '$' + newAmt.toLocaleString();
+  amtEl.className = 'exp-new' + (val > 0 ? ' changed' : '');
+
+  document.getElementById(`pct-${ci}-${ii}`).textContent = val + '%';
+  document.getElementById(`saving-${ci}-${ii}`).textContent = saving > 0 ? `–$${saving.toLocaleString()} saved` : '';
+
+  recalcSectionTotal(ci);
+  recalcAll();
+}
+
+function recalcSectionTotal(ci) {
+  let saving = 0;
+  categories[ci].items.forEach((item, ii) => {
+    saving += Math.round(item.amt * (cuts[`${ci}-${ii}`] || 0) / 100);
+  });
+  const el = document.getElementById(`sect-saving-${ci}`);
+  el.textContent = saving > 0 ? `–$${saving.toLocaleString()} saved` : '';
+}
+
+function resetAll() {
+  categories.forEach((cat, ci) => {
+    cat.items.forEach((item, ii) => {
+      cuts[`${ci}-${ii}`] = 0;
+      const slider = document.getElementById(`slider-${ci}-${ii}`);
+      if (slider) { slider.value = 0; slider.style.setProperty('--pct','0%'); }
+      const amtEl = document.getElementById(`amt-${ci}-${ii}`);
+      if (amtEl) { amtEl.textContent = '$' + item.amt.toLocaleString(); amtEl.className = 'exp-new'; }
+      const pctEl = document.getElementById(`pct-${ci}-${ii}`);
+      if (pctEl) pctEl.textContent = '0%';
+      const savEl = document.getElementById(`saving-${ci}-${ii}`);
+      if (savEl) savEl.textContent = '';
+      const sectSav = document.getElementById(`sect-saving-${ci}`);
+      if (sectSav) sectSav.textContent = '';
+    });
+  });
+  recalcAll();
+}
+
+// ── MAIN RECALC ─────────────────────────────────────────────────────────────
+function recalcAll() {
+  let totalSaving = 0;
+  let nonCashSaving = 0;
+  categories.forEach((cat, ci) => {
+    cat.items.forEach((item, ii) => {
+      const s = Math.round(item.amt * (cuts[`${ci}-${ii}`] || 0) / 100);
+      totalSaving += s;
+      if (item.nonCash) nonCashSaving += s;
+    });
+  });
+
+  const newOpEx   = BASE.opex - totalSaving;
+  const newNet    = BASE.grossProfit - newOpEx;
+  // EBITDA: add back remaining non-cash (original deprAmort minus what we cut from non-cash)
+  const newDeprAmort = BASE.deprAmort - nonCashSaving;
+  const newEBITDA = newNet + newDeprAmort;
+  const debtSvc   = parseFloat(document.getElementById('pm-debt')?.value) || BASE.debtService;
+  const newFCF    = newEBITDA - debtSvc;
+
+  updateKPIs(newOpEx, totalSaving, newNet, newFCF);
+  updateBridge(newNet, newDeprAmort, newEBITDA, debtSvc, newFCF);
+  updateMeters(totalSaving, newNet, newEBITDA, newFCF, debtSvc);
+  updateSummary(totalSaving, newOpEx, newNet, newEBITDA, newFCF, debtSvc);
+  updateScenarioTable(newNet, newFCF, totalSaving);
+}
+
+function fmt(n, sign) {
+  const abs = '$' + Math.abs(Math.round(n)).toLocaleString();
+  if (sign) return (n >= 0 ? '+' : '–') + abs;
+  return (n < 0 ? '–' : '') + abs;
+}
+
+function updateKPIs(newOpEx, saving, newNet, newFCF) {
+  const opexEl = document.getElementById('kpi-opex');
+  opexEl.textContent = '$' + Math.round(newOpEx).toLocaleString();
+  opexEl.className = 'kpi-val ' + (saving > 0 ? 'green' : 'red');
+
+  document.getElementById('kpi-saving').textContent =
+    saving > 0 ? `–$${Math.round(saving).toLocaleString()} saved` : '$0 saved so far';
+
+  const netEl = document.getElementById('kpi-net');
+  netEl.textContent = fmt(newNet, true);
+  netEl.className = 'kpi-val ' + (newNet >= 0 ? 'green' : 'red');
+
+  document.getElementById('kpi-fcf').textContent =
+    'FCF: ' + fmt(newFCF, true) + ' est.';
+}
+
+function updateBridge(newNet, newDeprAmort, newEBITDA, debtSvc, newFCF) {
+  const maxW = 2410023;
+  const pct = v => Math.min(100, Math.max(2, Math.abs(v) / maxW * 100)) + '%';
+  const bridge = document.getElementById('bridge');
+  bridge.innerHTML = `
+    <div class="brow">
+      <div class="brow-lbl bold">Gross Profit</div>
+      <div class="brow-bar-wrap"><div class="brow-bar pos" style="width:${pct(BASE.grossProfit)}">Gross Profit</div></div>
+      <div class="brow-amt pos">${fmt(BASE.grossProfit)}</div>
+    </div>
+    <div class="brow">
+      <div class="brow-lbl">– Operating Expenses</div>
+      <div class="brow-bar-wrap"><div class="brow-bar neg" style="width:${pct(BASE.opex - (BASE.opex - (BASE.grossProfit - newNet)))}"></div></div>
+      <div class="brow-amt neg">${fmt(BASE.grossProfit - newNet)}</div>
+    </div>
+    <div class="brow-divider"></div>
+    <div class="brow">
+      <div class="brow-lbl bold">Net Income</div>
+      <div class="brow-bar-wrap"><div class="brow-bar ${newNet>=0?'pos':'neg'}" style="width:${pct(newNet)}">${newNet>=0?'PROFIT':'LOSS'}</div></div>
+      <div class="brow-amt ${newNet>=0?'pos':'neg'}">${fmt(newNet,true)}</div>
+    </div>
+    <div class="brow">
+      <div class="brow-lbl">+ Depreciation & Amortization</div>
+      <div class="brow-bar-wrap"><div class="brow-bar neu" style="width:${pct(newDeprAmort)}">Non-cash add-back</div></div>
+      <div class="brow-amt neu">+$${Math.round(newDeprAmort).toLocaleString()}</div>
+    </div>
+    <div class="brow-divider"></div>
+    <div class="brow">
+      <div class="brow-lbl bold">EBITDA</div>
+      <div class="brow-bar-wrap"><div class="brow-bar ${newEBITDA>=0?'pos':'neg'}" style="width:${pct(newEBITDA)}"></div></div>
+      <div class="brow-amt ${newEBITDA>=0?'pos':'neg'}">${fmt(newEBITDA,true)}</div>
+    </div>
+    <div class="brow">
+      <div class="brow-lbl">– Debt Service (est.)</div>
+      <div class="brow-bar-wrap"><div class="brow-bar neg" style="width:${pct(debtSvc)}">Principal payments</div></div>
+      <div class="brow-amt neg">–$${Math.round(debtSvc).toLocaleString()}</div>
+    </div>
+    <div class="brow-divider"></div>
+    <div class="brow">
+      <div class="brow-lbl bold">Free Cash Flow</div>
+      <div class="brow-bar-wrap"><div class="brow-bar fcf" style="width:${pct(newFCF)}">${newFCF>=0?'POSITIVE FCF':'NEGATIVE FCF'}</div></div>
+      <div class="brow-amt ${newFCF>=0?'pos':'neg'}">${fmt(newFCF,true)}</div>
+    </div>
+  `;
+}
+
+function updateMeters(saving, newNet, newEBITDA, newFCF, debtSvc) {
+  const beNeeded = 181148;
+  const ebitdaNeeded = 34417;
+  const fcfNeeded = beNeeded + debtSvc;
+
+  const bePct = Math.min(100, Math.max(0, (saving / beNeeded) * 100));
+  const ebitdaPct = Math.min(100, Math.max(0, (saving / ebitdaNeeded) * 100));
+  const fcfPct = Math.min(100, Math.max(0, (saving / fcfNeeded) * 100));
+
+  const beColor = bePct >= 100 ? 'green' : bePct > 60 ? 'yellow' : 'red';
+  const eColor = ebitdaPct >= 100 ? 'green' : ebitdaPct > 60 ? 'yellow' : 'red';
+  const fColor = fcfPct >= 100 ? 'green' : fcfPct > 50 ? 'yellow' : 'red';
+
+  document.getElementById('meters').innerHTML = `
+    <div class="meter">
+      <div class="meter-head">
+        <span class="meter-label">EBITDA Break-Even</span>
+        <span class="meter-val ${ebitdaPct>=100?'pos':'neg'}">${ebitdaPct>=100?'✅ ACHIEVED':'Need $'+Math.max(0,Math.round(ebitdaNeeded-saving)).toLocaleString()+' more'}</span>
+      </div>
+      <div class="meter-track"><div class="meter-fill ${eColor}" style="width:${ebitdaPct}%"></div></div>
+      <div class="meter-sub">Need $34,417 in cash cuts · Non-cash D&A adds back $146,731</div>
+    </div>
+    <div class="meter">
+      <div class="meter-head">
+        <span class="meter-label">Net Income Break-Even</span>
+        <span class="meter-val ${bePct>=100?'pos':'neg'}">${bePct>=100?'✅ ACHIEVED':'Need $'+Math.max(0,Math.round(beNeeded-saving)).toLocaleString()+' more'}</span>
+      </div>
+      <div class="meter-track"><div class="meter-fill ${beColor}" style="width:${bePct}%"></div></div>
+      <div class="meter-sub">Need $181,148 in total OpEx reduction</div>
+    </div>
+    <div class="meter">
+      <div class="meter-head">
+        <span class="meter-label">Positive Free Cash Flow</span>
+        <span class="meter-val ${fcfPct>=100?'pos':'neg'}">${fcfPct>=100?'✅ ACHIEVED':'Need $'+Math.max(0,Math.round(fcfNeeded-saving)).toLocaleString()+' more'}</span>
+      </div>
+      <div class="meter-track"><div class="meter-fill ${fColor}" style="width:${fcfPct}%"></div></div>
+      <div class="meter-sub">Break-even + $${Math.round(debtSvc).toLocaleString()} debt service = $${Math.round(fcfNeeded).toLocaleString()} total needed</div>
+    </div>
+  `;
+}
+
+function updateSummary(saving, newOpEx, newNet, newEBITDA, newFCF, debtSvc) {
+  document.getElementById('summary').innerHTML = `
+    <div class="sb-title">CURRENT SCENARIO</div>
+    <div class="sb-row"><span class="sl">Total Expenses Cut</span><span class="sv ${saving>0?'green':'white'}">–$${Math.round(saving).toLocaleString()}</span></div>
+    <div class="sb-row"><span class="sl">New Annual OpEx</span><span class="sv white">$${Math.round(newOpEx).toLocaleString()}</span></div>
+    <div class="sb-row"><span class="sl">Net Income</span><span class="sv ${newNet>=0?'green':'red'}">${fmt(newNet,true)}</span></div>
+    <div class="sb-row"><span class="sl">EBITDA</span><span class="sv ${newEBITDA>=0?'green':'red'}">${fmt(newEBITDA,true)}</span></div>
+    <div class="sb-row"><span class="sl">Debt Service</span><span class="sv red">–$${Math.round(debtSvc).toLocaleString()}</span></div>
+    <div class="sb-row"><span class="sl">Free Cash Flow</span><span class="sv ${newFCF>=0?'green':'red'}">${fmt(newFCF,true)}</span></div>
+    <div class="sb-row"><span class="sl">Still need to break even</span><span class="sv ${newNet>=0?'green':'yellow'}">${newNet>=0?'✅ Done':'$'+Math.round(-newNet).toLocaleString()}</span></div>
+    <div class="sb-row"><span class="sl">Still need for pos. FCF</span><span class="sv ${newFCF>=0?'green':'yellow'}">${newFCF>=0?'✅ Done':'$'+Math.round(-newFCF).toLocaleString()}</span></div>
+  `;
+}
+
+function updateScenarioTable(newNet, newFCF, saving) {
+  const debtSvc = parseFloat(document.getElementById('pm-debt')?.value) || BASE.debtService;
+  const scenarios = [
+    { label: 'Current (No cuts)', cuts: 0 },
+    { label: 'EBITDA Break-Even', cuts: 34417 },
+    { label: 'Net Income Break-Even', cuts: 181148 },
+    { label: 'Positive FCF', cuts: 181148 + debtSvc },
+    { label: '▶ Your Scenario', cuts: saving, highlight: true },
+  ];
+
+  let html = `<thead><tr>
+    <th>Scenario</th><th>Cuts Needed</th><th>Net Income</th><th>EBITDA</th><th>FCF</th>
+  </tr></thead><tbody>`;
+
+  scenarios.forEach(s => {
+    const net   = BASE.grossProfit - (BASE.opex - s.cuts);
+    const ebitda = net + BASE.deprAmort;
+    const fcf   = ebitda - debtSvc;
+    const cls   = s.highlight ? 'highlight' : '';
+    const nc    = n => `<span class="${n>=0?'pos':'neg'}">${fmt(n,true)}</span>`;
+    html += `<tr class="${cls}">
+      <td>${s.label}</td>
+      <td class="${s.cuts===0?'':'neg'}">$${Math.round(s.cuts).toLocaleString()}</td>
+      <td class="${net>=0?'green':'red'}">${fmt(net,true)}</td>
+      <td class="${ebitda>=0?'green':'red'}">${fmt(ebitda,true)}</td>
+      <td class="${fcf>=0?'green':'red'}">${fmt(fcf,true)}</td>
+    </tr>`;
+  });
+
+  html += '</tbody>';
+  document.getElementById('scenarioTable').innerHTML = html;
+}
+
+// ── PRICE / MARGIN TAB ──────────────────────────────────────────────────────
+function updatePrice() {
+  const rev      = parseFloat(document.getElementById('pm-rev').value)       || BASE.revenue;
+  const cogs     = parseFloat(document.getElementById('pm-cogs').value)      || BASE.cogs;
+  const pricePct = parseFloat(document.getElementById('pm-price-pct').value) || 0;
+  const volPct   = parseFloat(document.getElementById('pm-vol').value)       || 0;
+  const cogsCut  = parseFloat(document.getElementById('pm-cogs-cut').value)  || 0;
+  const debtSvc  = parseFloat(document.getElementById('pm-debt').value)      || BASE.debtService;
+
+  // New revenue = rev × (1 + price%) × (1 + vol%)
+  const newRev   = rev * (1 + pricePct/100) * (1 + volPct/100);
+  const newCOGS  = cogs * (1 + volPct/100) * (1 - cogsCut/100);
+  const newGP    = newRev - newCOGS;
+  const newGPpct = (newGP / newRev * 100);
+
+  // Get current expense cuts from sliders
+  let saving = 0;
+  categories.forEach((cat,ci) => cat.items.forEach((item,ii) => {
+    saving += Math.round(item.amt * (cuts[`${ci}-${ii}`]||0) / 100);
+  }));
+
+  const newOpEx   = BASE.opex - saving;
+  const newNet    = newGP - newOpEx;
+  const newEBITDA = newNet + BASE.deprAmort;
+  const newFCF    = newEBITDA - debtSvc;
+
+  // What price increase alone gets to break-even?
+  // newGP_needed = BASE.opex − saving → newRev_needed = COGS + opex_needed / newGPpctBase
+  const baseGPpct = (rev - cogs) / rev;
+  const gpNeededBE  = newOpEx;
+  const revNeededBE = newCOGS + gpNeededBE;  // approximate
+  const priceForBE  = ((revNeededBE / (rev * (1+volPct/100))) - 1) * 100;
+
+  const gpNeededFCF  = newOpEx + debtSvc - BASE.deprAmort;
+  const revNeededFCF = newCOGS + gpNeededFCF;
+  const priceForFCF  = ((revNeededFCF / (rev * (1+volPct/100))) - 1) * 100;
+
+  // Margin needed
+  const marginForBE  = (gpNeededBE / revNeededBE) * 100;
+  const marginForFCF = (gpNeededFCF / revNeededFCF) * 100;
+
+  const beStatus  = newNet >= 0;
+  const fcfStatus = newFCF >= 0;
+
+  document.getElementById('price-result').innerHTML = `
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:3px;padding:16px;margin-bottom:14px;">
+      <div style="font-family:var(--mono);font-size:0.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">With Current Inputs</div>
+      <div style="display:flex;flex-direction:column;gap:6px;font-size:0.78rem;">
+        <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">New Revenue</span><span style="font-family:var(--mono);font-weight:600">$${Math.round(newRev).toLocaleString()}</span></div>
+        <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">New Gross Profit</span><span style="font-family:var(--mono);font-weight:600">$${Math.round(newGP).toLocaleString()} (${newGPpct.toFixed(1)}%)</span></div>
+        <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">Net Income</span><span style="font-family:var(--mono);font-weight:600;color:${beStatus?'var(--green)':'var(--accent)'}">${fmt(newNet,true)}</span></div>
+        <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">EBITDA</span><span style="font-family:var(--mono);font-weight:600;color:${newEBITDA>=0?'var(--green)':'var(--accent)'}">${fmt(newEBITDA,true)}</span></div>
+        <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">Free Cash Flow</span><span style="font-family:var(--mono);font-weight:600;color:${fcfStatus?'var(--green)':'var(--accent)'}">${fmt(newFCF,true)}</span></div>
+      </div>
+    </div>
+
+    <div style="font-family:var(--mono);font-size:0.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">What's required (price alone, at current volume):</div>
+
+    <table class="scenario-table" style="margin-bottom:14px">
+      <thead><tr><th>Target</th><th>Price Increase Needed</th><th>Required Gross Margin</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>Net Break-Even</td>
+          <td style="text-align:right;font-family:var(--mono)" class="${priceForBE<=pricePct?'pos':'neg'}">${priceForBE>0?'+':''}${priceForBE.toFixed(1)}%${priceForBE<=pricePct?' ✅':''}</td>
+          <td style="text-align:right;font-family:var(--mono)">${marginForBE.toFixed(1)}%</td>
+        </tr>
+        <tr>
+          <td>Positive FCF</td>
+          <td style="text-align:right;font-family:var(--mono)" class="${priceForFCF<=pricePct?'pos':'neg'}">${priceForFCF>0?'+':''}${priceForFCF.toFixed(1)}%${priceForFCF<=pricePct?' ✅':''}</td>
+          <td style="text-align:right;font-family:var(--mono)">${marginForFCF.toFixed(1)}%</td>
+        </tr>
+        <tr class="highlight">
+          <td>Current Scenario</td>
+          <td class="${beStatus?'green':'red'}" style="text-align:right;font-family:var(--mono)">${pricePct>0?'+':''}${pricePct.toFixed(1)}%</td>
+          <td style="text-align:right;font-family:var(--mono)">${newGPpct.toFixed(1)}%</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="note-box">
+      <strong>Combined path:</strong> Expense cuts from the sliders + price increases work together.
+      The more you cut on the Expense Sliders tab, the lower the price increase required here.
+      Current expense cuts selected: <strong>–$${Math.round(saving).toLocaleString()}</strong>.
+      ${saving > 0 ? `With those cuts, you need a <strong>${Math.max(0,priceForBE).toFixed(1)}% price increase</strong> to fully break even.` : 'Select expense cuts on the other tab to reduce the required price increase.'}
+    </div>
+  `;
+
+  // also update debt service in main recalc
+  recalcAll();
+}
+
+// ── TAB SWITCH ──────────────────────────────────────────────────────────────
+function switchTab(tab) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+  event.target.classList.add('active');
+  if (tab === 'price') updatePrice();
+}
+
+// ── INIT ────────────────────────────────────────────────────────────────────
+buildSliders();
+recalcAll();
+</script>
+</body>
+</html>
